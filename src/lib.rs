@@ -77,42 +77,44 @@ enum EntryType {
     Unknown,
 }
 
-fn char_to_entry_type(c: u8) -> Option<EntryType> {
-    match c {
-        b'\x00' |
-        b'0' => Some(EntryType::Regular),
-        b'1' => Some(EntryType::Link),
-        b'2' => Some(EntryType::Symlink),
-        b'3' => Some(EntryType::Char),
-        b'4' => Some(EntryType::Block),
-        b'5' => Some(EntryType::Directory),
-        b'6' => Some(EntryType::Fifo),
-        b'7' => Some(EntryType::Continuous),
-        b'x' => Some(EntryType::XHeader),
-        b'g' => Some(EntryType::XGlobalHeader),
-        b'L' => Some(EntryType::GNULongName),
-        b'K' => Some(EntryType::GNULongLink),
-        b'S' => Some(EntryType::GNUSparse),
-        _ => None,
+impl EntryType {
+    fn from_byte(byte: u8) -> Option<EntryType> {
+        match byte {
+            b'\x00' |
+            b'0' => Some(EntryType::Regular),
+            b'1' => Some(EntryType::Link),
+            b'2' => Some(EntryType::Symlink),
+            b'3' => Some(EntryType::Char),
+            b'4' => Some(EntryType::Block),
+            b'5' => Some(EntryType::Directory),
+            b'6' => Some(EntryType::Fifo),
+            b'7' => Some(EntryType::Continuous),
+            b'x' => Some(EntryType::XHeader),
+            b'g' => Some(EntryType::XGlobalHeader),
+            b'L' => Some(EntryType::GNULongName),
+            b'K' => Some(EntryType::GNULongLink),
+            b'S' => Some(EntryType::GNUSparse),
+            _ => None,
+        }
     }
-}
 
-fn entry_type_to_char(et: EntryType) -> u8 {
-    match et {
-        EntryType::Regular       => b'0',
-        EntryType::Link          => b'1',
-        EntryType::Symlink       => b'2',
-        EntryType::Char          => b'3',
-        EntryType::Block         => b'4',
-        EntryType::Directory     => b'5',
-        EntryType::Fifo          => b'6',
-        EntryType::Continuous    => b'7',
-        EntryType::XHeader       => b'x',
-        EntryType::XGlobalHeader => b'g',
-        EntryType::GNULongName   => b'L',
-        EntryType::GNULongLink   => b'K',
-        EntryType::GNUSparse     => b'S',
-        EntryType::Unknown       => b' ',
+    fn to_byte(&self) -> u8 {
+        match self {
+            &EntryType::Regular       => b'0',
+            &EntryType::Link          => b'1',
+            &EntryType::Symlink       => b'2',
+            &EntryType::Char          => b'3',
+            &EntryType::Block         => b'4',
+            &EntryType::Directory     => b'5',
+            &EntryType::Fifo          => b'6',
+            &EntryType::Continuous    => b'7',
+            &EntryType::XHeader       => b'x',
+            &EntryType::XGlobalHeader => b'g',
+            &EntryType::GNULongName   => b'L',
+            &EntryType::GNULongLink   => b'K',
+            &EntryType::GNUSparse     => b'S',
+            &EntryType::Unknown       => b' ',
+        }
     }
 }
 
@@ -342,7 +344,7 @@ impl<R: Read> Archive<R> {
                 continue
             }
 
-            let entry_type = char_to_entry_type(file.header().link[0]);
+            let entry_type = EntryType::from_byte(file.header().link[0]);
             if entry_type == Some(EntryType::Directory) {
                 try!(fs::create_dir_all(&file_dst).map_err(|e| {
                     TarError::new(&format!("failed to create `{}`",
@@ -974,7 +976,7 @@ impl Header {
         self.set_gid(meta.gid() as u32);
 
         // TODO: need to bind more file types
-        self.link[0] = entry_type_to_char(match meta.mode() & libc::S_IFMT {
+        self.link[0] = match meta.mode() & libc::S_IFMT {
             libc::S_IFREG => EntryType::Regular,
             libc::S_IFLNK => EntryType::Symlink,
             libc::S_IFCHR => EntryType::Char,
@@ -982,7 +984,7 @@ impl Header {
             libc::S_IFDIR => EntryType::Directory,
             libc::S_IFIFO => EntryType::Fifo,
             _ => EntryType::Unknown,
-        });
+        }.to_byte();
     }
 
     #[cfg(windows)]
